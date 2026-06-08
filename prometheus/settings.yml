@@ -74,26 +74,21 @@ scrape_configs:
 
   - job_name: "user-rpc"
     static_configs:
-      - targets: ["host.docker.internal:9094"]
+      - targets: ["user:9094"]
 
   - job_name: "article-rpc"
     static_configs:
-      - targets: [ "host.docker.internal:9092"]
+      - targets: ["article:9092"]
   - job_name: "like-rpc"
     static_configs:
-      - targets: ["host.docker.internal:9098"]
+      - targets: ["like:9098"]
   - job_name: "like-api"
     static_configs:
-      - targets: ["host.docker.internal:9099"]
-  - job_name: "like-mq"
-    static_configs:
-      - targets: ["host.docker.internal:9100"]
+      - targets: ["like:9099"]
   
   
 
   - job_name: 'comment-rpc'
     static_configs:
-      - targets: [ 'host.docker.internal:9091' ]
-
-
+      - targets: ['comment:9091']
 

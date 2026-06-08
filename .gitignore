@@ -9,3 +9,6 @@ go.mod
 *.exe
 
 .gocache
+.manage-logs/
+.dist/
+bin/

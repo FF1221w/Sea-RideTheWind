@@ -23,19 +23,19 @@ DevServer:
 
 
 BizRedis:
-  Host: 127.0.0.1:36379
+  Host: redis:6379
   Type: "node"
   Pass: ""
 
 
 Telemetry:
   Name: user-api
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
 UserRpc:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: user.rpc

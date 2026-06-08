@@ -3,7 +3,7 @@ Name: like-mq
 Kafka:
   Name: like-mq-consumer
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Group: like-update-group
   Topic: like_promotion_topic
   Offset: first
@@ -20,14 +20,14 @@ DevServer:
 
 HotEventPusherConf:
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: article-hot-events
 
 Telemetry:
-  Name: like-mq               
-  Endpoint: localhost:34317    
-  Sampler: 1.0                 
-  Batcher: otlpgrpc           
+  Name: like-mq
+  Endpoint: jaeger:4317
+  Sampler: 1.0
+  Batcher: otlpgrpc
 
 DB:
-  DataSource: postgres://admin:Sea-TryGo@127.0.0.1:35432/first_db?sslmode=disable
+  DataSource: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_ADDR}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable

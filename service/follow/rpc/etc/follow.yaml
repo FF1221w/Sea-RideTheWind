@@ -3,7 +3,7 @@ ListenOn: 0.0.0.0:8082
 
 Etcd:
   Hosts:
-    - 127.0.0.1:32379
+    - etcd:2379
   Key: follow.rpc
 
 Log:
@@ -13,7 +13,7 @@ Log:
 
 Telemetry:
   Name: follow-rpc
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
@@ -27,17 +27,17 @@ DevServer:
   EnablePprof: true
 
 Postgres:
-  Host: "127.0.0.1"
-  Port: "35432"
+  Host: "postgres"
+  Port: "5432"
   User: "admin"
-  Password: "Sea-TryGo"
+  Password: "${POSTGRES_PASSWORD}"
   DBName: "first_db"
   Mode: "disable"
 
 UserRpc:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: user.rpc
 
 List:

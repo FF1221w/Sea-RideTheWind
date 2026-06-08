@@ -7,15 +7,15 @@ Log:
   Path: ../../../../log/user-rpc
 
 Postgres:
-  Host: "127.0.0.1"
-  Port: "35432"
+  Host: "postgres"
+  Port: "5432"
   User: "admin"
-  Password: "Sea-TryGo"
+  Password: "${POSTGRES_PASSWORD}"
   DBName: "first_db"
   Mode: "disable"
 
 BizRedis:
-  Host: 127.0.0.1:36379
+  Host: redis:6379
   Type: "node"
   Pass: ""
   
@@ -36,12 +36,12 @@ UserAuth:
 
 Telemetry:
   Name: user-rpc
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
 
 Etcd:
   Hosts:
-    - 127.0.0.1:32379
+    - etcd:2379
   Key: user.rpc

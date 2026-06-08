@@ -3,7 +3,7 @@ ListenOn: 0.0.0.0:8081
 Timeout: 60000
 Etcd:
   Hosts:
-  - 127.0.0.1:32379
+  - etcd:2379
   Key: security.rpc
 
 
@@ -67,5 +67,5 @@ metrics:
   include_batch_metrics: true
 
 Cache:
-  - Host: 127.0.0.1:6379
+  - Host: redis:6379
     Type: node

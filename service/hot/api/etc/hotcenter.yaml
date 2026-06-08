@@ -9,7 +9,7 @@ Log:
 
 Telemetry:
   Name: hot-api
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
@@ -25,11 +25,11 @@ DevServer:
 HotRpcConf:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: hot.rpc
 
 ArticleRpcConf:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: article.rpc

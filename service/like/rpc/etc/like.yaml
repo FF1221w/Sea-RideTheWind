@@ -2,7 +2,7 @@ Name: like.rpc
 ListenOn: 0.0.0.0:8082
 Etcd:
   Hosts:
-  - 127.0.0.1:32379
+  - etcd:2379
   Key: like.rpc
 
 Log:
@@ -12,7 +12,7 @@ Log:
 
 Telemetry:
   Name: like-rpc
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
@@ -43,7 +43,7 @@ Storage:
     MaxBackgroundCompactions: 4
   #配置读取性能高的Redis
   Redis:
-    Host: "127.0.0.1:36379"
+    Host: "redis:6379"
     Type: "node"
     Pass: ""
     #普通作品的点赞在Redis中活3600s
@@ -53,7 +53,7 @@ Storage:
     #批量查询时的最大查询条数
     BatchSize: 1000
   Postgres:
-    DataSource: "postgres://admin:Sea-TryGo@127.0.0.1:35432/first_db?sslmode=disable"
+    DataSource: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_ADDR}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable"
     #每隔300s,后台会定时把RocksDB中最近产生的10000条数据塞到PG里
     #"异步冷备"
     SyncBatchSize: 10000
@@ -62,7 +62,7 @@ Storage:
 #配置消息队列Kafka
 KafkaConf:
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: "like_promotion_topic"
 
 HotSpot:
@@ -81,21 +81,21 @@ HotSpot:
 
 KafkaPusher:
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: like_update_topic
 
 TaskUserPusherConf:
   Name: like.task.user.pusher
   Group: like.task.user.pusher
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: task.logs.filtered.User
 
 TaskArticlePusherConf:
   Name: like.task.article.pusher
   Group: like.task.article.pusher
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: task.logs.filtered.Article
 
 #防刷系统
@@ -114,5 +114,5 @@ AntiBrush:
 MessageRpc:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: message.rpc

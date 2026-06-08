@@ -12,13 +12,13 @@ UserAuth:
   AccessExpire: 31536000
 
 BizRedis:
-  Host: 127.0.0.1:36379
+  Host: redis:6379
   Type: node
   Pass: ""
 
 Telemetry:
   Name: follow-api
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
@@ -34,5 +34,5 @@ DevServer:
 FollowRpc:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: follow.rpc

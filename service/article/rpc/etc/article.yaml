@@ -3,14 +3,14 @@ ListenOn: 0.0.0.0:9001
 Timeout: 70000
 Etcd:
   Hosts:
-  - 127.0.0.1:32379
+  - etcd:2379
   Key: article.rpc
 
 Postgres:
-  Host: 127.0.0.1
-  Port: "35432"
+  Host: postgres
+  Port: "5432"
   User: admin
-  Password: "Sea-TryGo"
+  Password: "${POSTGRES_PASSWORD}"
   DBName: first_db
 
 Log:
@@ -27,13 +27,13 @@ KqPusherConf:
   Name: article-mq-pusher
   Group: "article-creation-group"
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: article-creation-topic
 
 MinIO:
-  Endpoint: "127.0.0.1:39000"
+  Endpoint: "minio:9000"
   # 部署环境建议填写对外可访问的静态资源基址；留空时回退到 Endpoint。
-  PublicBaseURL: ""
+  PublicBaseURL: "http://sea-ridethewindbreakthewaves.xyz:39000"
   AccessKeyID: "minioadmin"
   SecretAccessKey: "minioadmin"
   BucketName: "articles"
@@ -44,7 +44,7 @@ MinIO:
 KqConsumerConf:
   Name: dataclean-consumer
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Group: dataclean
   Topic: article-creation-topic
   Offset: first
@@ -54,13 +54,13 @@ ArticleSyncPusherConf:
   Name: article-sync-pusher
   Group: article-sync-pusher
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: article-sync-events
 
 ArticleSyncResultConsumerConf:
   Name: article-sync-result-consumer
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Group: article-sync-result
   Topic: article-sync-results
   Offset: first
@@ -73,24 +73,24 @@ ArticleSyncOutbox:
 
 Telemetry:
   Name: article-rpc
-  Endpoint: localhost:34317     # OTLP gRPC 端口
+  Endpoint: jaeger:4317     # OTLP gRPC 端口
   Sampler: 1.0
   Batcher: otlpgrpc            # 替代原来的 jaeger
 
 HotEventPusherConf:
   Brokers:
-    - 127.0.0.1:39092       # 指向基础架构的 Kafka 集群Topic: article-hot-events  # 强约束：必须为该固定 Topic
+    - kafka:9092       # 指向基础架构的 Kafka 集群Topic: article-hot-events  # 强约束：必须为该固定 Topic
   Topic: article-hot-events
 
 SecurityConf:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: security.rpc
   Timeout: 10000
 
 MessageRpc:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: message.rpc

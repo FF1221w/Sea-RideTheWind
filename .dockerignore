@@ -1,0 +1,12 @@
+.git
+.idea
+.vscode
+log
+volumes
+data
+.manage-logs
+tmp
+dist
+bin
+*.zip
+*.exe

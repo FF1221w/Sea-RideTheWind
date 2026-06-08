@@ -1,37 +1,79 @@
 #!/usr/bin/env bash
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec /usr/bin/env bash "$0" "$@"
+fi
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DOCKERFILE="$ROOT_DIR/Dockerfile"
+
+load_root_env() {
+  if [ -f "$ROOT_DIR/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$ROOT_DIR/.env"
+    set +a
+  fi
+}
+
+load_root_env
+DOCKERFILE="$ROOT_DIR/dockerfile"
 ENTRYPOINT_FILE="$ROOT_DIR/docker-entrypoint.sh"
 DOCKERIGNORE_FILE="$ROOT_DIR/.dockerignore"
 IMAGE_PREFIX="sea-trygo"
+CONTAINER_PREFIX="${CONTAINER_PREFIX:-Sea}"
 LOG_ROOT_DIR="$ROOT_DIR/.manage-logs"
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
 LOG_DIR="$LOG_ROOT_DIR/$RUN_ID"
+DOCKER_NETWORK="${DOCKER_NETWORK:-Sea-TryGo}"
+HOST_BUILD_DIR="$ROOT_DIR/.dist"
+LOCAL_IMAGE_BASE="${LOCAL_IMAGE_BASE:-sea-trygo-article:latest}"
+GO_BIN="${GO_BIN:-/home/ubuntu/go/bin/go}"
+export DOCKER_NETWORK
+export CONTAINER_PREFIX
 
 # 机器角色：
 # infra -> 基础设施机器，只负责 docker compose up infra
 # app   -> Go 服务机器，只负责 docker run 各服务
 NODE_ROLE="${NODE_ROLE:-app}"
 
-# 远端基础设施主机 IP（必须手动填写）
-# app 机器统一通过这个地址生成所有依赖地址
-INFRA_HOST="请填写你的基础设施主机 IP，例如：INFRA_HOST=\"
+# 服务器公网 IP（用于对外访问；单机部署时容器内部依赖建议走 DOCKER_NETWORK）
+INFRA_HOST="${INFRA_HOST:-141.11.46.61}"
 
 # 如果你想手工覆盖下面这些地址，可以直接修改这里，或 export 后再执行脚本
 ETCD_ADDR="${ETCD_ADDR:-${INFRA_HOST}:32379}"
 REDIS_ADDR="${REDIS_ADDR:-${INFRA_HOST}:36379}"
 POSTGRES_ADDR="${POSTGRES_ADDR:-${INFRA_HOST}}"
 POSTGRES_PORT="${POSTGRES_PORT:-35432}"
+POSTGRES_USER="${POSTGRES_USER:-admin}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
+POSTGRES_DB="${POSTGRES_DB:-first_db}"
 KAFKA_ADDR="${KAFKA_ADDR:-${INFRA_HOST}:39092}"
 MINIO_ADDR="${MINIO_ADDR:-${INFRA_HOST}:39000}"
 BEANSTALKD1_ADDR="${BEANSTALKD1_ADDR:-${INFRA_HOST}:41300}"
 BEANSTALKD2_ADDR="${BEANSTALKD2_ADDR:-${INFRA_HOST}:41301}"
 OTEL_ADDR="${OTEL_ADDR:-${INFRA_HOST}:34317}"
 
-# 只保留当前 compose 里真实存在的 infra 服务
-INFRA_SERVICES=(etcd postgres redis kafka minio)
+# 当前 compose 里由 manage.sh 负责拉起的基础设施与观测组件
+INFRA_SERVICES=(
+  etcd
+  postgres
+  redis
+  beanstalkd1
+  beanstalkd2
+  neo4j
+  kafka
+  minio
+  milvus
+  postgres-exporter
+  redis-exporter
+  kafka-exporter
+  jaeger
+  prometheus
+  grafana
+  node-exporter
+  cadvisor
+  filebeat
+)
 
 ALL_SERVICES=(article comment like follow favorite message task user admin hot points security)
 
@@ -125,6 +167,24 @@ service_exists() {
   return 1
 }
 
+container_name_for_service() {
+  local service="$1"
+  echo "${CONTAINER_PREFIX}-${service}"
+}
+
+legacy_container_name_for_service() {
+  local service="$1"
+  echo "${IMAGE_PREFIX}-${service}"
+}
+
+remove_service_container_if_exists() {
+  local name="$1"
+  if docker ps -a --format '{{.Names}}' | grep -q "^${name}$"; then
+    warn "removing existing container: ${name}"
+    docker rm -f "${name}" >/dev/null 2>&1 || true
+  fi
+}
+
 resolve_infra_env_defaults() {
   case "$NODE_ROLE" in
     infra)
@@ -169,11 +229,19 @@ ETCD_ADDR="${ETCD_ADDR:-}"
 REDIS_ADDR="${REDIS_ADDR:-}"
 POSTGRES_ADDR="${POSTGRES_ADDR:-}"
 POSTGRES_PORT="${POSTGRES_PORT:-35432}"
+POSTGRES_USER="${POSTGRES_USER:-admin}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
+POSTGRES_DB="${POSTGRES_DB:-first_db}"
 KAFKA_ADDR="${KAFKA_ADDR:-}"
 MINIO_ADDR="${MINIO_ADDR:-}"
 BEANSTALKD1_ADDR="${BEANSTALKD1_ADDR:-}"
 BEANSTALKD2_ADDR="${BEANSTALKD2_ADDR:-}"
 OTEL_ADDR="${OTEL_ADDR:-}"
+POSTGRES_USER="${POSTGRES_USER:-admin}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+POSTGRES_DB="${POSTGRES_DB:-first_db}"
+POSTGRES_ADDR="${POSTGRES_ADDR:-postgres}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 
 mkdir -p /app/log /tmp/service-configs /app/service/like/rpc/data
 
@@ -192,7 +260,34 @@ patch_config() {
   require_file "$src"
   cp "$src" "$dst"
 
+  escape_sed_replacement() {
+    printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
+  }
+
+  local postgres_addr_esc postgres_port_esc postgres_user_esc postgres_password_esc postgres_db_esc
+  postgres_addr_esc="$(escape_sed_replacement "$POSTGRES_ADDR")"
+  postgres_port_esc="$(escape_sed_replacement "$POSTGRES_PORT")"
+  postgres_user_esc="$(escape_sed_replacement "$POSTGRES_USER")"
+  postgres_password_esc="$(escape_sed_replacement "$POSTGRES_PASSWORD")"
+  postgres_db_esc="$(escape_sed_replacement "$POSTGRES_DB")"
+
 sed -i \
+  -e "s#\${POSTGRES_ADDR}#${postgres_addr_esc}#g" \
+  -e "s#\${POSTGRES_PORT}#${postgres_port_esc}#g" \
+  -e "s#\${POSTGRES_USER}#${postgres_user_esc}#g" \
+  -e "s#\${POSTGRES_PASSWORD}#${postgres_password_esc}#g" \
+  -e "s#\${POSTGRES_DB}#${postgres_db_esc}#g" \
+  -e "s#127\.0\.0\.1:32379#${ETCD_ADDR}#g" \
+  -e "s#127\.0\.0\.1:36379#${REDIS_ADDR}#g" \
+  -e "s#127\.0\.0\.1:6379#${REDIS_ADDR}#g" \
+  -e "s#127\.0\.0\.1:39092#${KAFKA_ADDR}#g" \
+  -e "s#127\.0\.0\.1:39000#${MINIO_ADDR}#g" \
+  -e "s#127\.0\.0\.1:41300#${BEANSTALKD1_ADDR}#g" \
+  -e "s#127\.0\.0\.1:41301#${BEANSTALKD2_ADDR}#g" \
+  -e "s#Host: \"127\.0\.0\.1\"#Host: \"${POSTGRES_ADDR}\"#g" \
+  -e "s#Host: 127\.0\.0\.1#Host: ${POSTGRES_ADDR}#g" \
+  -e "s#@127\.0\.0\.1:35432#@${POSTGRES_ADDR}:${POSTGRES_PORT}#g" \
+  -e "s#127\.0\.0\.1:35432#${POSTGRES_ADDR}:${POSTGRES_PORT}#g" \
   -e "s#175\.24\.130\.226:32379#${ETCD_ADDR}#g" \
   -e "s#host\.docker\.internal:32379#${ETCD_ADDR}#g" \
   -e "s#175\.24\.130\.226:36379#${REDIS_ADDR}#g" \
@@ -236,7 +331,9 @@ sed -i \
   -e "s#@https://host\.docker\.internal:35432#@${POSTGRES_ADDR}:${POSTGRES_PORT}#g" \
   -e "s#@175\.24\.130\.226:35432#@${POSTGRES_ADDR}:${POSTGRES_PORT}#g" \
   -e "s#@host\.docker\.internal:35432#@${POSTGRES_ADDR}:${POSTGRES_PORT}#g" \
+  -e "s#host=127\.0\.0\.1 #host=${POSTGRES_ADDR} #g" \
   -e "s#localhost:34317#${OTEL_ADDR}#g" \
+  -e "s#127\.0\.0\.1:34317#${OTEL_ADDR}#g" \
   -e "s#175\.24\.130\.226:34317#${OTEL_ADDR}#g" \
   -e "s#host\.docker\.internal:34317#${OTEL_ADDR}#g" \
   "$dst"
@@ -354,6 +451,7 @@ EOF
 ensure_base_dirs() {
   ensure_dir "$ROOT_DIR/log"
   ensure_dir "$ROOT_DIR/service/like/rpc/data"
+  ensure_dir "$HOST_BUILD_DIR"
   ensure_dir "$LOG_ROOT_DIR"
   ensure_dir "$LOG_DIR"
 }
@@ -363,6 +461,8 @@ preflight() {
 
   command_exists docker || die "docker command not found"
   info "docker binary: $(command -v docker)"
+  [ -x "$GO_BIN" ] || die "go binary not found: $GO_BIN"
+  info "go binary: $GO_BIN"
 
   if ! docker version >/dev/null 2>&1; then
     die "docker daemon is not available"
@@ -386,6 +486,8 @@ preflight() {
   info "dockerfile: $DOCKERFILE"
   info "log dir: $LOG_DIR"
   info "NODE_ROLE=$NODE_ROLE"
+  info "DOCKER_NETWORK=$DOCKER_NETWORK"
+  info "CONTAINER_PREFIX=$CONTAINER_PREFIX"
   info "INFRA_HOST=${INFRA_HOST:-<empty>}"
   info "ETCD_ADDR=${ETCD_ADDR:-<empty>}"
   info "REDIS_ADDR=${REDIS_ADDR:-<empty>}"
@@ -468,7 +570,14 @@ resolve_build_paths() {
 build_one() {
   local service="$1"
   local api_build rpc_build map
-  local build_log="$LOG_DIR/build-${service}.log"
+  local api_log="$LOG_DIR/build-${service}-api.log"
+  local rpc_log="$LOG_DIR/build-${service}-rpc.log"
+  local package_log="$LOG_DIR/package-${service}.log"
+  local service_dist_dir="$HOST_BUILD_DIR/$service"
+  local api_out="$service_dist_dir/api"
+  local rpc_out="$service_dist_dir/rpc"
+  local ldflags="-s -w"
+  local tmp_name="${IMAGE_PREFIX}-${service}-packaging-$$"
 
   map="$(resolve_build_paths "$service")"
   api_build="${map%%|*}"
@@ -476,26 +585,61 @@ build_one() {
 
   section "build service=${service}"
   info "image=${IMAGE_PREFIX}-${service}:latest"
+  info "base_image=${LOCAL_IMAGE_BASE}"
   info "api_build=${api_build:-<none>}"
   info "rpc_build=${rpc_build:-<none>}"
-  info "build log => $build_log"
+  info "host build dir => $service_dist_dir"
 
-  run_logged "docker build ${service}" "$build_log" \
-    env DOCKER_BUILDKIT="$DOCKER_BUILDKIT" docker build \
-      --network host \
-      --progress="${BUILD_PROGRESS}" \
-      -f "$DOCKERFILE" \
-      -t "${IMAGE_PREFIX}-${service}:latest" \
-      --build-arg HTTP_PROXY="${HTTP_PROXY:-}" \
-      --build-arg HTTPS_PROXY="${HTTPS_PROXY:-}" \
-      --build-arg NO_PROXY="${NO_PROXY:-}" \
-      --build-arg http_proxy="${http_proxy:-${HTTP_PROXY:-}}" \
-      --build-arg https_proxy="${https_proxy:-${HTTPS_PROXY:-}}" \
-      --build-arg no_proxy="${no_proxy:-${NO_PROXY:-}}" \
-      --build-arg API_BUILD_PATH="$api_build" \
-      --build-arg RPC_BUILD_PATH="$rpc_build" \
-      --build-arg DEBUG_BUILD="$DEBUG_BUILD" \
-      "$ROOT_DIR"
+  ensure_dir "$service_dist_dir"
+  rm -f "$api_out" "$rpc_out"
+
+  if [ -n "$api_build" ]; then
+    run_logged "go build api ${service}" "$api_log" \
+      env GOWORK=off "$GO_BIN" build \
+        -trimpath \
+        -ldflags "$ldflags" \
+        -o "$api_out" \
+        "$api_build"
+  fi
+
+  if [ -n "$rpc_build" ]; then
+    run_logged "go build rpc ${service}" "$rpc_log" \
+      env GOWORK=off "$GO_BIN" build \
+        -trimpath \
+        -ldflags "$ldflags" \
+        -o "$rpc_out" \
+        "$rpc_build"
+  fi
+
+  docker image inspect "$LOCAL_IMAGE_BASE" >/dev/null 2>&1 || die "base image not found: $LOCAL_IMAGE_BASE"
+  docker rm -f "$tmp_name" >/dev/null 2>&1 || true
+
+  section "package service=${service}"
+  info "package log => $package_log"
+  info "temporary container => $tmp_name"
+  info "target image => ${IMAGE_PREFIX}-${service}:latest"
+
+  {
+    echo "[package] create container from ${LOCAL_IMAGE_BASE}"
+    docker create --name "$tmp_name" "$LOCAL_IMAGE_BASE"
+    echo "[package] sync service tree"
+    docker cp "$ROOT_DIR/service/." "$tmp_name:/app/service"
+    echo "[package] sync entrypoint"
+    docker cp "$ENTRYPOINT_FILE" "$tmp_name:/app/docker-entrypoint.sh"
+    if [ -f "$api_out" ]; then
+      echo "[package] sync api binary => $api_out"
+      docker cp "$api_out" "$tmp_name:/app/bin/api"
+    fi
+    if [ -f "$rpc_out" ]; then
+      echo "[package] sync rpc binary => $rpc_out"
+      docker cp "$rpc_out" "$tmp_name:/app/bin/rpc"
+    fi
+    echo "[package] commit image"
+    docker commit "$tmp_name" "${IMAGE_PREFIX}-${service}:latest"
+  } 2>&1 | tee "$package_log"
+
+  docker rm -f "$tmp_name" >/dev/null 2>&1 || true
+  docker image inspect "${IMAGE_PREFIX}-${service}:latest" >/dev/null 2>&1 || die "failed to package image: ${IMAGE_PREFIX}-${service}:latest"
 }
 
 ensure_image() {
@@ -591,7 +735,8 @@ run_container() {
   local -a port_args=("$@")
   local -a volume_args=("-v" "$ROOT_DIR/log:/app/log")
   local run_log="$LOG_DIR/run-${service}.log"
-  local name="${IMAGE_PREFIX}-${service}"
+  local name
+  name="$(container_name_for_service "$service")"
 
   if [ "$service" = "like" ]; then
     volume_args+=("-v" "$ROOT_DIR/service/like/rpc/data:/app/service/like/rpc/data")
@@ -607,15 +752,16 @@ run_container() {
   info "ports=${port_args[*]:-<none>}"
   info "run log => $run_log"
 
-  if docker ps -a --format '{{.Names}}' | grep -q "^${name}$"; then
-    warn "removing old container: ${name}"
-    docker rm -f "${name}" >/dev/null 2>&1 || true
-  fi
+  remove_service_container_if_exists "$name"
+  remove_service_container_if_exists "$(legacy_container_name_for_service "$service")"
 
   run_logged "docker run ${service}" "$run_log" \
     docker run -d \
       --name "${name}" \
       --restart always \
+      --network "${DOCKER_NETWORK}" \
+      --hostname "$service" \
+      --network-alias "$service" \
       "${port_args[@]}" \
       "${volume_args[@]}" \
       -e SERVICE_NAME="$service" \
@@ -631,6 +777,9 @@ run_container() {
       -e REDIS_ADDR="$REDIS_ADDR" \
       -e POSTGRES_ADDR="$POSTGRES_ADDR" \
       -e POSTGRES_PORT="$POSTGRES_PORT" \
+      -e POSTGRES_USER="$POSTGRES_USER" \
+      -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+      -e POSTGRES_DB="$POSTGRES_DB" \
       -e KAFKA_ADDR="$KAFKA_ADDR" \
       -e MINIO_ADDR="$MINIO_ADDR" \
       -e BEANSTALKD1_ADDR="$BEANSTALKD1_ADDR" \
@@ -666,7 +815,7 @@ start_one() {
       run_container "like" "${IMAGE_PREFIX}-like:latest" "1" "1" \
         "/app/service/like/api" "/app/service/like/rpc" \
         "etc/likecenter.yaml" "etc/like.yaml" \
-        -p 18887:8887 -p 18082:8082
+        -p 18887:18887 -p 18082:8082
       ;;
     follow)
       run_container "follow" "${IMAGE_PREFIX}-follow:latest" "1" "1" \
@@ -690,7 +839,7 @@ start_one() {
       run_container "task" "${IMAGE_PREFIX}-task:latest" "1" "1" \
         "/app/service/task/api" "/app/service/task/rpc" \
         "etc/task.yaml" "etc/task.yaml" \
-        -p 18886:8888 -p 19005:9005
+        -p 18886:18886 -p 19005:9005
       ;;
     user)
       run_container "user" "${IMAGE_PREFIX}-user:latest" "1" "1" \
@@ -730,16 +879,21 @@ start_one() {
 
 stop_one() {
   local service="$1"
-  local name="${IMAGE_PREFIX}-${service}"
+  local name
+  name="$(container_name_for_service "$service")"
+  local legacy_name
+  legacy_name="$(legacy_container_name_for_service "$service")"
 
   section "stop service=${service}"
   docker rm -f "${name}" >/dev/null 2>&1 || true
-  info "stopped: ${name}"
+  docker rm -f "${legacy_name}" >/dev/null 2>&1 || true
+  info "stopped: ${name} ${legacy_name}"
 }
 
 status_one() {
   local service="$1"
-  local name="${IMAGE_PREFIX}-${service}"
+  local name
+  name="$(container_name_for_service "$service")"
 
   section "status service=${service}"
 
@@ -757,7 +911,9 @@ status_one() {
 }
 
 logs_one() {
-  docker logs -f "${IMAGE_PREFIX}-${1}"
+  local name
+  name="$(container_name_for_service "$1")"
+  docker logs -f "$name"
 }
 
 doctor_one() {
@@ -932,6 +1088,8 @@ main() {
   info "DOCKERFILE=$DOCKERFILE"
   info "LOG_DIR=$LOG_DIR"
   info "NODE_ROLE=$NODE_ROLE"
+  info "DOCKER_NETWORK=$DOCKER_NETWORK"
+  info "CONTAINER_PREFIX=$CONTAINER_PREFIX"
   info "INFRA_HOST=${INFRA_HOST:-<empty>}"
   info "BUILD_PROGRESS=$BUILD_PROGRESS"
   info "START_WAIT_SECONDS=$START_WAIT_SECONDS"
@@ -1002,10 +1160,14 @@ main() {
       echo "  LOG_TAIL_LINES=80"
       echo "  DEBUG_BUILD=0"
       echo "  DOCKER_BUILDKIT=1"
+      echo "  CONTAINER_PREFIX=Sea"
       echo "  ETCD_ADDR=${INFRA_HOST}:32379"
       echo "  REDIS_ADDR=${INFRA_HOST}:36379"
       echo "  POSTGRES_ADDR=${INFRA_HOST}"
       echo "  POSTGRES_PORT=35432"
+      echo "  POSTGRES_USER=admin"
+      echo "  POSTGRES_PASSWORD=<required>"
+      echo "  POSTGRES_DB=first_db"
       echo "  KAFKA_ADDR=${INFRA_HOST}:39092"
       echo "  MINIO_ADDR=${INFRA_HOST}:39000"
       echo "  OTEL_ADDR=${INFRA_HOST}:34317"

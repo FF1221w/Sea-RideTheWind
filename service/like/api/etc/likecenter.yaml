@@ -13,7 +13,7 @@ Log:
 
 Telemetry:
   Name: like-api
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
@@ -31,6 +31,6 @@ DevServer:
 LikeRpc:
   Etcd:
     Hosts:
-      - 127.0.0.1:32379
+      - etcd:2379
     Key: like.rpc
 

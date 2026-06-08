@@ -2,7 +2,7 @@ Name: hot.rpc
 ListenOn: 0.0.0.0:8084
 Etcd:
   Hosts:
-    - 127.0.0.1:32379
+    - etcd:2379
   Key: hot.rpc
 
 Prometheus:
@@ -11,18 +11,18 @@ Prometheus:
   Path: /metrics
 
 RedisConf:
-  Host: 127.0.0.1:36379
+  Host: redis:6379
   Type: node
 
 KqPusherConf:
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: article-hot-events
 
 KqConsumerConf:
   Name: article-hot-consumer
   Brokers:
-    - 127.0.0.1:39092
+    - kafka:9092
   Topic: article-hot-events
   Group: article-hot-group
 

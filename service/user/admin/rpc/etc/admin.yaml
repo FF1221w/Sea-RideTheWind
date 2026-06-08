@@ -8,19 +8,19 @@ Log:
 
 Etcd:
   Hosts:
-   - 127.0.0.1:32379
+   - etcd:2379
   Key: admin.rpc
 
-DataSource: "postgres://admin:Sea-TryGo@127.0.0.1:35432/first_db?sslmode=disable&TimeZone=Asia/Shanghai"
+DataSource: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_ADDR}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable&TimeZone=Asia/Shanghai"
 
 BizRedis:
-  Host: 127.0.0.1:36379
+  Host: redis:6379
   Type: "node"
   Pass: ""
 
 Telemetry:
   Name: admin-rpc
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 

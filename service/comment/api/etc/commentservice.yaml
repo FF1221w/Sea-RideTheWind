@@ -13,7 +13,7 @@ Log:
 
 Telemetry:
   Name: comment-api
-  Endpoint: localhost:34317
+  Endpoint: jaeger:4317
   Sampler: 1.0
   Batcher: otlpgrpc
 
