@@ -1,0 +1,95 @@
+Name: article.rpc
+ListenOn: 0.0.0.0:9001
+Timeout: 70000
+Etcd:
+  Hosts:
+  - etcd:2379
+  Key: article.rpc
+
+Postgres:
+  Host: postgres
+  Port: "5432"
+  User: admin
+  Password: "${POSTGRES_PASSWORD}"
+  DBName: first_db
+
+Log:
+  ServiceName: article-rpc
+  Mode: file
+  Path: ../../../log/article-rpc
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9092
+  Path: /metrics
+
+KqPusherConf:
+  Name: article-mq-pusher
+  Group: "article-creation-group"
+  Brokers:
+    - kafka:9092
+  Topic: article-creation-topic
+
+MinIO:
+  Endpoint: "minio:9000"
+  PublicBaseURL: "http://localhost:39000"
+  AccessKeyID: "minioadmin"
+  SecretAccessKey: "minioadmin"
+  BucketName: "articles"
+  UseSSL: false
+  ImagePath: "articles/images/"
+  ArticlePath: "articles/content/"
+
+KqConsumerConf:
+  Name: dataclean-consumer
+  Brokers:
+    - kafka:9092
+  Group: dataclean
+  Topic: article-creation-topic
+  Offset: first
+  Consumers: 1
+
+ArticleSyncPusherConf:
+  Name: article-sync-pusher
+  Group: article-sync-pusher
+  Brokers:
+    - kafka:9092
+  Topic: article-sync-events
+
+ArticleSyncResultConsumerConf:
+  Name: article-sync-result-consumer
+  Brokers:
+    - kafka:9092
+  Group: article-sync-result
+  Topic: article-sync-results
+  Offset: first
+  Consumers: 1
+
+ArticleSyncOutbox:
+  PollIntervalMs: 1000
+  BatchSize: 100
+  MaxRetry: 10
+
+Telemetry:
+  Name: article-rpc
+  Endpoint: jaeger:4317
+  Sampler: 1.0
+  Batcher: otlpgrpc
+
+HotEventPusherConf:
+  Brokers:
+    - kafka:9092
+  Topic: article-hot-events
+
+SecurityConf:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: security.rpc
+  Timeout: 10000
+
+MessageRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: message.rpc

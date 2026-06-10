@@ -4,6 +4,8 @@ FROM golang:1.25-bookworm AS builder
 
 WORKDIR /src
 
+ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY

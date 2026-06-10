@@ -27,6 +27,8 @@ const (
 	ErrorUserBanned           = 1011
 	ErrorRedisUpdate          = 1012
 	ErrorAdminInviteCodeWrong = 1016
+	ErrorRequestParam         = 1017
+	ErrorAvatarHistoryNotExist = 1018
 	// Points模块
 	ErrorPointsInsufficient  = 3001 // 积分余量不足
 	ErrorPointsRetryExceeded = 3002 // 重试次数超限

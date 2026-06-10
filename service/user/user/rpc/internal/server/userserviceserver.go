@@ -47,6 +47,21 @@ func (s *UserServiceServer) UpdateUser(ctx context.Context, in *pb.UpdateUserReq
 	return l.UpdateUser(in)
 }
 
+func (s *UserServiceServer) UploadAvatar(ctx context.Context, in *pb.UploadAvatarReq) (*pb.UploadAvatarResp, error) {
+	l := logic.NewUploadAvatarLogic(ctx, s.svcCtx)
+	return l.UploadAvatar(in)
+}
+
+func (s *UserServiceServer) GetAvatarHistory(ctx context.Context, in *pb.GetAvatarHistoryReq) (*pb.GetAvatarHistoryResp, error) {
+	l := logic.NewGetAvatarHistoryLogic(ctx, s.svcCtx)
+	return l.GetAvatarHistory(in)
+}
+
+func (s *UserServiceServer) SelectAvatar(ctx context.Context, in *pb.SelectAvatarReq) (*pb.SelectAvatarResp, error) {
+	l := logic.NewSelectAvatarLogic(ctx, s.svcCtx)
+	return l.SelectAvatar(in)
+}
+
 func (s *UserServiceServer) DeleteUser(ctx context.Context, in *pb.DeleteUserReq) (*pb.DeleteUserResp, error) {
 	l := logic.NewDeleteUserLogic(ctx, s.svcCtx)
 	return l.DeleteUser(in)

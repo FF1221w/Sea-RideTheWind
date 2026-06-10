@@ -30,7 +30,7 @@ func InitDB(conf DBConf) *gorm.DB {
 	if err != nil {
 		log.Fatalln("数据库连接失败")
 	}
-	err = db.AutoMigrate(&User{})
+	err = db.AutoMigrate(&User{}, &UserAvatarHistory{})
 	if err != nil {
 		log.Fatalln("数据表迁移失败")
 	}

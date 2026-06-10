@@ -44,9 +44,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: user.GetuserHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodGet,
+					Path:    "/user/avatar/history",
+					Handler: user.GetavatarhistoryHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPost,
 					Path:    "/user/logout",
 					Handler: user.LogoutHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/avatar",
+					Handler: user.UploadavatarHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/avatar/select",
+					Handler: user.SelectavatarHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,

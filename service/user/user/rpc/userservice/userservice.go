@@ -17,21 +17,31 @@ type (
 	CreateUserResp = pb.CreateUserResp
 	DeleteUserReq  = pb.DeleteUserReq
 	DeleteUserResp = pb.DeleteUserResp
+	GetAvatarHistoryReq = pb.GetAvatarHistoryReq
+	GetAvatarHistoryResp = pb.GetAvatarHistoryResp
 	GetUserReq     = pb.GetUserReq
 	GetUserResp    = pb.GetUserResp
 	LoginReq       = pb.LoginReq
 	LoginResp      = pb.LoginResp
 	LogoutReq      = pb.LogoutReq
 	LogoutResp     = pb.LogoutResp
+	SelectAvatarReq = pb.SelectAvatarReq
+	SelectAvatarResp = pb.SelectAvatarResp
+	UploadAvatarReq = pb.UploadAvatarReq
+	UploadAvatarResp = pb.UploadAvatarResp
 	UpdateUserReq  = pb.UpdateUserReq
 	UpdateUserResp = pb.UpdateUserResp
 	UserInfo       = pb.UserInfo
+	AvatarHistoryItem = pb.AvatarHistoryItem
 
 	UserService interface {
+		GetAvatarHistory(ctx context.Context, in *GetAvatarHistoryReq, opts ...grpc.CallOption) (*GetAvatarHistoryResp, error)
 		GetUser(ctx context.Context, in *GetUserReq, opts ...grpc.CallOption) (*GetUserResp, error)
 		Register(ctx context.Context, in *CreateUserReq, opts ...grpc.CallOption) (*CreateUserResp, error)
 		Login(ctx context.Context, in *LoginReq, opts ...grpc.CallOption) (*LoginResp, error)
 		Logout(ctx context.Context, in *LogoutReq, opts ...grpc.CallOption) (*LogoutResp, error)
+		SelectAvatar(ctx context.Context, in *SelectAvatarReq, opts ...grpc.CallOption) (*SelectAvatarResp, error)
+		UploadAvatar(ctx context.Context, in *UploadAvatarReq, opts ...grpc.CallOption) (*UploadAvatarResp, error)
 		UpdateUser(ctx context.Context, in *UpdateUserReq, opts ...grpc.CallOption) (*UpdateUserResp, error)
 		DeleteUser(ctx context.Context, in *DeleteUserReq, opts ...grpc.CallOption) (*DeleteUserResp, error)
 	}
@@ -52,6 +62,11 @@ func (m *defaultUserService) GetUser(ctx context.Context, in *GetUserReq, opts .
 	return client.GetUser(ctx, in, opts...)
 }
 
+func (m *defaultUserService) GetAvatarHistory(ctx context.Context, in *GetAvatarHistoryReq, opts ...grpc.CallOption) (*GetAvatarHistoryResp, error) {
+	client := pb.NewUserServiceClient(m.cli.Conn())
+	return client.GetAvatarHistory(ctx, in, opts...)
+}
+
 func (m *defaultUserService) Register(ctx context.Context, in *CreateUserReq, opts ...grpc.CallOption) (*CreateUserResp, error) {
 	client := pb.NewUserServiceClient(m.cli.Conn())
 	return client.Register(ctx, in, opts...)
@@ -65,6 +80,16 @@ func (m *defaultUserService) Login(ctx context.Context, in *LoginReq, opts ...gr
 func (m *defaultUserService) Logout(ctx context.Context, in *LogoutReq, opts ...grpc.CallOption) (*LogoutResp, error) {
 	client := pb.NewUserServiceClient(m.cli.Conn())
 	return client.Logout(ctx, in, opts...)
+}
+
+func (m *defaultUserService) SelectAvatar(ctx context.Context, in *SelectAvatarReq, opts ...grpc.CallOption) (*SelectAvatarResp, error) {
+	client := pb.NewUserServiceClient(m.cli.Conn())
+	return client.SelectAvatar(ctx, in, opts...)
+}
+
+func (m *defaultUserService) UploadAvatar(ctx context.Context, in *UploadAvatarReq, opts ...grpc.CallOption) (*UploadAvatarResp, error) {
+	client := pb.NewUserServiceClient(m.cli.Conn())
+	return client.UploadAvatar(ctx, in, opts...)
 }
 
 func (m *defaultUserService) UpdateUser(ctx context.Context, in *UpdateUserReq, opts ...grpc.CallOption) (*UpdateUserResp, error) {

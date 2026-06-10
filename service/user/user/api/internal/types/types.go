@@ -56,6 +56,39 @@ type UpdateUserResp struct {
 	User UserInfo `json:"user"`
 }
 
+type UploadAvatarReq struct {
+	AvatarUrl   string `json:"avatar_url"`
+	ContentType string `json:"content_type,optional"`
+	SizeBytes   int64  `json:"size_bytes,optional"`
+}
+
+type AvatarHistoryItem struct {
+	Id          string `json:"id"`
+	AvatarUrl   string `json:"avatar_url"`
+	ContentType string `json:"content_type"`
+	SizeBytes   int64  `json:"size_bytes"`
+	IsCurrent   bool   `json:"is_current"`
+	CreateTime  string `json:"create_time"`
+}
+
+type UploadAvatarResp struct {
+	AvatarUrl string            `json:"avatar_url"`
+	History   AvatarHistoryItem `json:"history"`
+}
+
+type AvatarHistoryResp struct {
+	List []AvatarHistoryItem `json:"list"`
+}
+
+type SelectAvatarReq struct {
+	HistoryId string `json:"history_id"`
+}
+
+type SelectAvatarResp struct {
+	AvatarUrl string            `json:"avatar_url"`
+	History   AvatarHistoryItem `json:"history"`
+}
+
 type UserInfo struct {
 	Uid       int64             `json:"uid,string"`
 	Score     uint32            `json:"score"`
