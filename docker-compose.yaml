@@ -173,6 +173,8 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./prometheus/settings.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
