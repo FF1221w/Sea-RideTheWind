@@ -85,10 +85,13 @@ scrape_configs:
   - job_name: "like-api"
     static_configs:
       - targets: ["like:9099"]
-  
-  
+
+  - job_name: "recommend-service"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:20721"]
+
 
   - job_name: 'comment-rpc'
     static_configs:
       - targets: ['comment:9091']
-
